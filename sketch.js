@@ -9,6 +9,10 @@ let height = 936;
 let verticle_divider
 let horizontal_divider 
 
+let curlevel = 0;
+
+let levels
+
 // create a portal network that teleports blockA to blockB and vice versa
 let portalNetwork1
 
@@ -17,6 +21,8 @@ let portalNetwork2
 let engine
 
 let world
+
+let win = false;
 
 
 let  metector
@@ -57,7 +63,7 @@ let portalPos_4bottom = { x: (width / 4)*3, y: height-8, w: 200, h: 16}
 
 
 
-spacing = 90;
+spacing = 70;
 
 
 
@@ -85,13 +91,27 @@ function setup() {
     horizontal_divider = new Block(world, { x: width / 2, y: height / 2, w: width, h: 16, color: 'white' }, { isStatic: true});
     
     // create a portal network that teleports blockA to blockB and vice versa 
+
+    levels = [
+        new level(new goal({ x: (width/4)*3, y: (height/4)*1, w: 80, h: 80, color: 'green' }, world),[new PortalNetwork(portalPos_1right, portalPos_2left, 0, world, "red", {x: spacing, y: 0}, {x: -spacing, y: 0})])
+        ,
+        new level(new goal({ x: (width/4)*1, y: (height/4)*1, w: 80, h: 80, color: 'green' }, world),[new PortalNetwork(portalPos_2left, portalPos_4right, 0, world, "red", {x: -spacing, y: 0}, {x: spacing, y: 0}),new PortalNetwork(portalPos_4top, portalPos_1left, 3, world, "blue", {x: spacing, y: 0}, {x: 0, y: spacing})])
+        ,
+        new level(new goal({ x: (width/4)*3, y: (height/4)*3, w: 80, h: 80, color: 'green' }, world),
+        [
+            new PortalNetwork(portalPos_1left, portalPos_2left, 2, world, "yellow", {x: spacing, y: 0}, {x: spacing, y: 0}),
+            new PortalNetwork(portalPos_2right, portalPos_3right, 2, world, "blue", {x: -spacing, y: 0}, {x: -spacing, y: 0}),
+            new PortalNetwork(portalPos_3left, portalPos_4right, 0, world, "purple", {x: -spacing, y: 0}, {x: -spacing, y: 0})
+        ])
+    ];
     
-    portalNetwork1 = new PortalNetwork(portalPos_1top, portalPos_2bottom, 0, world, "red", {x: 0, y: -spacing}, {x: 0, y: spacing});
+    // portalNetwork1 = new PortalNetwork(portalPos_1top, portalPos_2bottom, 0, world, "red", {x: 0, y: -spacing}, {x: 0, y: spacing});
 
-    portalNetwork2 = new PortalNetwork(portalPos_4right, portalPos_2right, 2, world, "blue", {x: -spacing, y: 0}, {x: -spacing, y: 0});
+    // portalNetwork2 = new PortalNetwork(portalPos_4right, portalPos_2right, 2, world, "blue", {x: -spacing, y: 0}, {x: -spacing, y: 0});
 
 
-    portals = portalNetwork1.returnBlocks();
+    
+
 
 
     
@@ -109,8 +129,13 @@ let speed = 0.015;
 
 function draw() {
   background('black');
+
+
+  if (win == false) {
+  
   blockA.draw();
   ground.draw();
+    // log blockA's position
 
 //   if left is being pressed apply force to blockA in the left direction
     playerControler(blockA);
@@ -119,20 +144,33 @@ function draw() {
     verticle_divider.draw();
     horizontal_divider.draw();
 
-    
-    // for block in portal network return blocks draw them
-    for (let block of portalNetwork1.returnBlocks()) {
-        block.draw();
+    levels[curlevel].goal.block1.draw();
+    if (levels[curlevel].goal.collisionsHandler(blockA)) {
+        if (curlevel < levels.length - 1){
+            curlevel++;
+        } else {
+            win = true;
+        }
+
     }
 
-    for (let block of portalNetwork2.returnBlocks()) {
-        block.draw();
+    // for portal in levels[level].portals do something
+    for (let portalnetwork of levels[curlevel].portals) {
+        for (let block of portalnetwork.returnBlocks()) {
+            block.draw();
+        }
+        portalnetwork.collisionsHandler(blockA);
     }
     
+    
+} else {
+    background('white')
+    fill('green');
+    textSize(32);
+    text("You Win!", width/2, height/2);
+}
+    
 
-    portalNetwork1.collisionsHandler(blockA);
-
-    portalNetwork2.collisionsHandler(blockA);
 
 
 }
@@ -163,6 +201,7 @@ playerControler = function(prop) {
 
 
 }
+
 class PortalNetwork {
     // portal networks have 2 blocks that when touched, teleport the other block to the other side of the portal
     constructor(info1, info2, changeMomentum, world, color, offset1, offset2) {
@@ -202,8 +241,9 @@ class PortalNetwork {
             } else if (this.changeMomentum === 3) {
                 Matter.Body.setVelocity(blockA.body, {x: -currentVelocity.y, y: -currentVelocity.x});
             }
-            console.log(this.offset1)
+
             Matter.Body.setPosition(blockA.body, {x: this.block2.body.position.x + this.offset1["x"] , y: this.block2.body.position.y + this.offset1["y"]});
+            console.log(blockA.body.position, console.log(this.offset1));
         }
     }
 
@@ -222,7 +262,7 @@ class PortalNetwork {
             }
             // using Matter.Body.setPosition change the position of blockA to block2 in portal network
             Matter.Body.setPosition(blockA.body, {x: this.block1.body.position.x + this.offset2["x"]  , y: this.block1.body.position.y + this.offset2["y"]});
-
+            console.log(blockA.body.position)
         }
     }
 
@@ -230,6 +270,33 @@ class PortalNetwork {
     // print to console if the block that is passed in is touching the portal
 
 }
+
+
+class goal { 
+    constructor(blockinfo, world) {
+        this.block1 = new Block(world, blockinfo, {isStatic: true, isSensor: true});
+    }
+
+
+    collisionsHandler(blockA) {
+        let box1Collide = Matter.SAT.collides(blockA.body, this.block1.body);
+        if (box1Collide) {
+            if (box1Collide.collided) {
+                return true;
+            }
+        }
+    }
+}
+
+
+class level {
+    constructor(goal, portals) {
+        this.goal = goal;
+        this.portals = portals;
+    }
+}
+
+
 
 
 document.documentElement.style.overflow = 'hidden';  // firefox, chrome
